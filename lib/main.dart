@@ -1,9 +1,9 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:lector_doc/result_screen.dart';
+import 'result_screen.dart'; // Asegúrate de tener este archivo en tu proyecto
 
 void main() {
   runApp(const App());
@@ -15,9 +15,9 @@ class App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Escaneo de Texto',
+      title: 'Text Recognition Flutter',
       theme: ThemeData(
-        primarySwatch: Colors.red,
+        primarySwatch: Colors.blue,
       ),
       home: const MainScreen(),
     );
@@ -53,7 +53,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  Future<void> _requestCameraPermission() async {
+ Future<void> _requestCameraPermission() async {
     final status = await Permission.camera.request();
     _isPermissionGranted = status == PermissionStatus.granted;
   }
@@ -75,6 +75,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       return;
     }
 
+    // Select the first rear camera.
     CameraDescription? camera;
     for (var i = 0; i < cameras.length; i++) {
       final CameraDescription current = cameras[i];
@@ -105,6 +106,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     setState(() {});
   }
 
+
   Future<void> _scanImage() async {
     if (_cameraController == null) return;
 
@@ -120,24 +122,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Ocurre un Error al escanear el texto'),
+          content: Text('An error occurred when scanning text'),
         ),
       );
-    }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) {
-      return;
-    }
-
-    if (state == AppLifecycleState.inactive) {
-      _stopCamera();
-    } else if (state == AppLifecycleState.resumed &&
-        _cameraController != null &&
-        _cameraController!.value.isInitialized) {
-      _startCamera();
     }
   }
 
@@ -148,23 +135,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       builder: (context, snapshot) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Escaneo de Texto'),
+            title: const Text('Text Recognition Sample'),
           ),
           body: _isPermissionGranted
-              ? _buildCameraView()
+              ? _buildCameraPreview()
               : _buildPermissionDeniedView(),
-          floatingActionButton: _isPermissionGranted
-              ? FloatingActionButton(
-                  onPressed: _scanImage,
-                  child: const Icon(Icons.camera),
-                )
-              : null,
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => ResultScreen(texts: scannedTexts),
+              ),
+            ),
+            child: const Icon(Icons.list),
+          ),
         );
       },
     );
   }
 
-  Widget _buildCameraView() {
+  Widget _buildCameraPreview() {
     return Stack(
       children: [
         FutureBuilder<List<CameraDescription>>(
@@ -184,7 +173,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             padding: const EdgeInsets.only(bottom: 30.0),
             child: ElevatedButton(
               onPressed: _scanImage,
-              child: const Text('Escanear texto'),
+              child: const Text('Scan text'),
             ),
           ),
         ),
@@ -197,18 +186,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       child: Container(
         padding: const EdgeInsets.only(left: 24.0, right: 24.0),
         child: const Text(
-          'Permiso denegado de la camara',
+          'Camera permission denied',
           textAlign: TextAlign.center,
         ),
       ),
     );
   }
 
-  void _showScannedText(BuildContext context, String text) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ResultScreen(text: text),
-      ),
-    );
-  }
 }
