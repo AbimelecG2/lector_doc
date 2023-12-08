@@ -3,7 +3,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'result_screen.dart'; // Asegúrate de tener este archivo en tu proyecto
+import 'package:lector_doc/result_screen.dart';
 
 void main() {
   runApp(const App());
@@ -15,7 +15,7 @@ class App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Text Recognition Flutter',
+      title: 'Reconocimiento de Texto',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -33,15 +33,17 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _isPermissionGranted = false;
+
   late final Future<void> _future;
   CameraController? _cameraController;
+
   final textRecognizer = TextRecognizer();
-  List<String> scannedTexts = [];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
     _future = _requestCameraPermission();
   }
 
@@ -53,7 +55,80 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
- Future<void> _requestCameraPermission() async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive) {
+      _stopCamera();
+    } else if (state == AppLifecycleState.resumed &&
+        _cameraController != null &&
+        _cameraController!.value.isInitialized) {
+      _startCamera();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: _future,
+      builder: (context, snapshot) {
+        return Stack(
+          children: [
+            if (_isPermissionGranted)
+              FutureBuilder<List<CameraDescription>>(
+                future: availableCameras(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    _initCameraController(snapshot.data!);
+
+                    return Center(child: CameraPreview(_cameraController!));
+                  } else {
+                    return const LinearProgressIndicator();
+                  }
+                },
+              ),
+            Scaffold(
+              appBar: AppBar(
+                title: const Text('Text Recognition Sample'),
+              ),
+              backgroundColor: _isPermissionGranted ? Colors.transparent : null,
+              body: _isPermissionGranted
+                  ? Column(
+                      children: [
+                        Expanded(
+                          child: Container(),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.only(bottom: 30.0),
+                          child: Center(
+                            child: ElevatedButton(
+                              onPressed: _scanImage,
+                              child: const Text('Scan text'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Center(
+                      child: Container(
+                        padding: const EdgeInsets.only(left: 24.0, right: 24.0),
+                        child: const Text(
+                          'Camera permission denied',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _requestCameraPermission() async {
     final status = await Permission.camera.request();
     _isPermissionGranted = status == PermissionStatus.granted;
   }
@@ -106,91 +181,27 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     setState(() {});
   }
 
-
   Future<void> _scanImage() async {
+    // ... [Mantener la lógica existente de _scanImage] ...
     if (_cameraController == null) return;
 
+    final navigator = Navigator.of(context);
     try {
       final pictureFile = await _cameraController!.takePicture();
       final file = File(pictureFile.path);
       final inputImage = InputImage.fromFile(file);
       final recognizedText = await textRecognizer.processImage(inputImage);
 
-      setState(() {
-        scannedTexts.add(recognizedText.text);
-      });
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (BuildContext context) =>
+            ResultScreen(text: recognizedText.text),
+      ));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('An error occurred when scanning text'),
         ),
-      );
+      ); // ... [Manejo de errores] ...
     }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: _future,
-      builder: (context, snapshot) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Text Recognition Sample'),
-          ),
-          body: _isPermissionGranted
-              ? _buildCameraPreview()
-              : _buildPermissionDeniedView(),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => ResultScreen(texts: scannedTexts),
-              ),
-            ),
-            child: const Icon(Icons.list),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildCameraPreview() {
-    return Stack(
-      children: [
-        FutureBuilder<List<CameraDescription>>(
-          future: availableCameras(),
-          builder: (context, snapshot) {
-            if (snapshot.hasData) {
-              _initCameraController(snapshot.data!);
-              return Center(child: CameraPreview(_cameraController!));
-            } else {
-              return const LinearProgressIndicator();
-            }
-          },
-        ),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            padding: const EdgeInsets.only(bottom: 30.0),
-            child: ElevatedButton(
-              onPressed: _scanImage,
-              child: const Text('Scan text'),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPermissionDeniedView() {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.only(left: 24.0, right: 24.0),
-        child: const Text(
-          'Camera permission denied',
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
 }

@@ -1,41 +1,41 @@
 import 'package:flutter/material.dart';
 
-class ResultScreen extends StatelessWidget {
-  final List<String> texts; // Ahora acepta una lista de textos
 
-  const ResultScreen({super.key, required this.texts});
+class ResultScreen extends StatefulWidget {
+  final String text;
+
+  const ResultScreen({Key? key, required this.text}) : super(key: key);
+
+  @override
+  _ResultScreenState createState() => _ResultScreenState();
+}
+
+class _ResultScreenState extends State<ResultScreen> {
+  List<String> results = [];
+
+  @override
+  void initState() {
+    super.initState();
+    results.add(widget.text);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Resultados'),
+        title: const Text('Resultados Escaneados'),
       ),
       body: ListView.builder(
-        itemCount: texts.length,
+        itemCount: results.length,
         itemBuilder: (context, index) {
           return Card(
             child: ListTile(
-              title: Text('Documento ${index + 1}'),
-              onTap: () => _showScannedText(context, texts[index]),
+              title: Text('Resultado ${index + 1}'),
+              subtitle: Text(results[index]),
             ),
           );
         },
       ),
-    );
-  }
-
-  void _showScannedText(BuildContext context, String text) {
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext context) {
-        return SingleChildScrollView(
-          child: Container(
-            padding: const EdgeInsets.all(20.0),
-            child: Text(text),
-          ),
-        );
-      },
     );
   }
 }
